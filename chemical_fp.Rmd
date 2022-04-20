@@ -14,39 +14,58 @@ library(readxl)
 
 ```{r}
 #load original data file: 7,170 compounds
-filtered_tox21 = read.delim("./data/clusters.txt") 
+filtered_tox21 = read.delim("./data/clusters.txt") #cas, cluster
 
 #load the aggregated file with CAS and SMILES: 19,334 rows
 aggregated_tox21 = read_xlsx("./data/tox21_aggregated.xlsx") %>% 
   janitor::clean_names() %>% 
   rename(ncgc = sample_id) %>% 
-  select(cas, smiles)
+  select(cas, smiles) #cas, smiles
 
 #extract the unique CAS and smiles --> 7,872
 aggregated_tox21_2 <- aggregated_tox21[!duplicated(aggregated_tox21[, c("cas", "smiles")]), ]
+
+#test = aggregated_tox21 %>% unique()
 ```
 
 Combine data using the cas as the "key"
 ```{r}
 data_combined = 
   left_join(filtered_tox21, aggregated_tox21_2, by = "cas") %>% 
-  distinct()
+  distinct() #7170 rows
 
 #length(unique(data_combined$cas)) #7,170 unique rows
 ```
-
 
 Check if there are missing values:
 ```{r}
 #sum(is.na(data_combined$smiles))
 #NOTE: we don't have the smiles for 140 of the compounds
 
-#after removing all non-complete rows, we are left with 7030 observations...
-non_missing = data_combined %>% remove_missing()
-nrow(data_combined %>% remove_missing()) #7,030
+#after removing all non-complete rows, we are left with 7170 - 140 = 7030 observations...
+not_missing = data_combined %>% remove_missing()
 
 #Find which compounds/drugs are actually missing the "SMILES" 
 missing = data_combined %>% filter(is.na(smiles)) #140
+```
+
+```{r eval=FALSE}
+test = read_xlsx("./data/tox21_aggregated.xlsx") %>% 
+  janitor::clean_names() %>% 
+  rename(ncgc = sample_id) %>% 
+  select(cas, pubchem_sid)
+
+z = left_join(missing, test, by = "cas") %>% 
+  distinct() %>% 
+  select(cas, pubchem_sid, cluster)
+
+write_csv(z, "./result/smiles_missing.csv")
+
+data_combined = 
+  left_join(filtered_tox21, aggregated_tox21_2, by = "cas") %>% 
+  distinct()
+
+write_csv(missing, "./result/missing_smiles_csv")
 
 #cluster_and_smiles = data_combined %>% select(cluster, smiles)
 #write_csv(cluster_and_smiles,"./result/cluster_and_smiles.csv")
@@ -55,18 +74,13 @@ missing = data_combined %>% filter(is.na(smiles)) #140
 
 #create output file (cas, cluster, smiles)
 ```{r}
-#smiles ONLY
-write_csv(non_missing %>% select(smiles), "./result/smiles.csv")
-
-#cas_cluster_smiles
-write_csv(non_missing, "./result/cluster_and_smiles.csv")
+write_csv(not_missing, "./result/cluster_and_smiles.csv")
 ```
 
 
 #create csv with cluster and smiles
 cluster_and_smiles = final_data %>% select(cluster, smiles)
 write_csv(cluster_and_smiles, "./result/cluster_and_smiles.csv")
-
 
 write.table(cluster_and_smiles, file = "./result/cluster_and_smiles.txt", sep = "\t") 
 
